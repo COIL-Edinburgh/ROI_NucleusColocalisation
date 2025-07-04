@@ -13,13 +13,13 @@
 	</parent>
 
 	<groupId>bio.coil</groupId>
-	<artifactId>Thom_Titans</artifactId>
+	<artifactId>Nucleus_Coloc</artifactId>
 	<version>1.0.1</version>
 
-	<name>Thom Titans</name>
-	<description>A project to find and measure the area and axes lengths of yeast? cells</description>
+	<name>Nucleus Colocalisation</name>
+	<description>A project to measure colocalisation is specific cell nuclei</description>
 	<url>https://www.ed.ac.uk/biology/wcb/centre-optical-instrumentation-laboratory-coil</url>
-	<inceptionYear>2023</inceptionYear>
+	<inceptionYear>2025</inceptionYear>
 	<organization>
 		<name>University of Edinburgh</name>
 		<url>https://ed.ac.uk</url>
@@ -36,7 +36,7 @@
 		<!-- See https://imagej.net/Team -->
 		<developer>
 			<id>CoilEdinburgh</id>
-			<name>Toni McHugh</name>
+			<name>David Kelly</name>
 			<url>https://www.ed.ac.uk/biology/wcb/centre-optical-instrumentation-laboratory-coil</url>
 			<roles>
 				<role>founder</role>
@@ -51,7 +51,7 @@
 	</developers>
 	<contributors>
 		<contributor>
-			<name>Dave Kelly</name>
+			<name>None</name>
 		</contributor>
 	</contributors>
 
@@ -63,22 +63,22 @@
 	</mailingLists>
 
 	<scm>
-		<connection>scm:git:https://github.com/CoilEdinburgh/Thom_Titans</connection>
-		<developerConnection>scm:git:git@github.com:CoilEdinburgh/Thom_Titans</developerConnection>
+		<connection>scm:git:https://github.com/CoilEdinburgh/Nucleus_Coloc</connection>
+		<developerConnection>scm:git:git@github.com:CoilEdinburgh/Nucleus_Coloc</developerConnection>
 		<tag>HEAD</tag>
-		<url>https://github.com/CoilEdinburgh/Thom_Titans</url>
+		<url>https://github.com/CoilEdinburgh/Nucleus_Coloc</url>
 	</scm>
 	<issueManagement>
 		<system>GitHub Issues</system>
-		<url>https://github.com/CoilEdinburgh/Thom_Titans/issues</url>
+		<url>https://github.com/CoilEdinburgh/Nucleus_Coloc/issues</url>
 	</issueManagement>
 	<ciManagement>
 		<system>None</system>
 	</ciManagement>
 
 	<properties>
-		<package-name>bio.coil.CoilEdinburgh.Thom_Titans</package-name>
-		<main-class>Thom_Titans</main-class>
+		<package-name>bio.coil.CoilEdinburgh.Nucleus_Coloc</package-name>
+		<main-class>Nucleus_Coloc</main-class>
 		<license.licenseName>cc0</license.licenseName>
 		<license.copyrightOwners>University of Edinburgh</license.copyrightOwners>
 	</properties>
@@ -91,12 +91,6 @@
 	</repositories>
 
 	<dependencies>
-
-<!--		<dependency>-->
-<!--			<groupId>com.mylib</groupId>-->
-<!--			<artifactId>mylib-core</artifactId>-->
-<!--			<version>0.0.1</version>-->
-<!--		</dependency>-->
 
 		<dependency>
 			<groupId>net.imagej</groupId>
@@ -141,20 +135,6 @@
 		<dependency>
 			<groupId>sc.fiji</groupId>
 			<artifactId>KymographBuilder</artifactId>
-		</dependency>
-
-		<!-- https://mvnrepository.com/artifact/sc.fiji/TurboReg_ -->
-		<dependency>
-			<groupId>sc.fiji</groupId>
-			<artifactId>TurboReg_</artifactId>
-			<version>2.0.0</version>
-		</dependency>
-
-		<!-- https://mvnrepository.com/artifact/sc.fiji/TransformJ_ -->
-		<dependency>
-			<groupId>sc.fiji</groupId>
-			<artifactId>TransformJ_</artifactId>
-			<version>4.0.0</version>
 		</dependency>
 
 		<!-- https://mvnrepository.com/artifact/ch.epfl.biop/ijl-utilities-wrappers -->

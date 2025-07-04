@@ -12,6 +12,8 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
 import ij.gui.Roi;
+import ij.gui.WaitForUserDialog;
+import ij.plugin.Duplicator;
 import ij.plugin.frame.RoiManager;
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
@@ -58,8 +60,8 @@ import java.util.List;
  * and replace the {@link run} method implementation with your own logic.
  * </p>
  */
-@Plugin(type = Command.class, menuPath = "Plugins>Users Plugins>Thom Titans")
-public class Thom_Titans<T extends RealType<T>> implements Command {
+@Plugin(type = Command.class, menuPath = "Plugins>Users Plugins>Nucleus Colocalisation")
+public class Nucleus_Coloc<T extends RealType<T>> implements Command {
     //
     // Feel free to add more parameters here...
     //
@@ -84,6 +86,9 @@ public class Thom_Titans<T extends RealType<T>> implements Command {
     @Parameter(label = "Model Path: ")
     public File modelpath;
 
+    @Parameter(label = "Cellpose Environment Path: ", style = "directory")
+    public File envpath;
+    
     RoiManager roiManager;
     double pixelSize;
 
@@ -93,84 +98,70 @@ public class Thom_Titans<T extends RealType<T>> implements Command {
 
             File[] files = filePath.listFiles();
             roiManager = new RoiManager();
-            boolean first = true;
+           
             for (File file : files) {
-                if (file.toString().contains(".nd2") && !file.toString().contains(".nd2 ")) {
+                if (file.toString().contains(".czi") && !file.toString().contains(".czi ")) {
                     //Open file and get filename and filepath
                     Img<T> img = openDataset(file);
-                    uiService.show(img);
+              //      uiService.show(img);
+                    ImagePlus imp = ImageJFunctions.wrap(img,"Title");
+                    imp.show();
+                    IJ.run(imp, "Enhance Contrast", "saturated=0.35");
+                    new WaitForUserDialog("Select Position", "Move the slider to select the correct Z position").show();
+                    int zPosition = imp.getZ();
+              
+                    
+                    ImagePlus[] channels = SplitChannelsandGetZ(imp,zPosition);
+                    
                     filename = FilenameUtils.removeExtension(file.getName());
-                    String model = " model_path= "+modelpath.toString();
-//                    if(first){
-//                    //IJ.run( ImageJFunctions.wrap(img, "test"), "Cellpose setup...", "");
-//                    first=false;}
+            //        String model = " model_path= "+modelpath.toString();
+                    int size = 85;
+                    
+                    Cellpose_Wrapper cpw = new Cellpose_Wrapper(modelpath.getPath(), envpath.getPath(), size, channels[3]);
+                    cpw.run(true);
+               
+            //        getROIsfromMask();
+            //        Roi[] outlines = roiManager.getRoisAsArray();
+            //        roiManager.reset();
+                    ImagePlus regions = WindowManager.getCurrentImage();
+            //        temp.changes=false;
+             //       temp.close();
 
-                    IJ.run("Cellpose Advanced", "diameter=" + 60 + " cellproba_threshold=" + 0.0 + " flow_threshold=" + 0.4
-                            + " anisotropy=" + 1.0 + " diam_threshold=" + 12.0 + " model=" + "cyto2" + " nuclei_channel=" + 0
-                            + " cyto_channel=" + 1 + " dimensionmode=" + "2D" + " stitch_threshold=" + -1 + " omni=" + false
-                            + " cluster=" + false + " additional_flags=" + "");
-                    getROIsfromMask();
-                    Roi[] outlines = roiManager.getRoisAsArray();
-                    roiManager.reset();
+                    ColocNuclei calculateColocalisation = new ColocNuclei(regions, channels);
 
-                    uiService.show(img);
-                    //IJ.run("Cellpose Advanced (custom model)", "diameter=" + 20 + " cellproba_threshold=" + 0.0 + " flow_threshold=" + 0.4
-                    //        + " anisotropy=" + 1.0 + " diam_threshold=" + 12.0 +  model + " model=" + "own_cyto2_model" +" nuclei_channel=" + 0
-                    //        + " cyto_channel=" + 1 + " dimensionmode=" + "2D" + " stitch_threshold=" + -1 + " omni=" + false
-                    //        + " cluster=" + false  + " additional_flags=" + "");
-                    IJ.run("Cellpose Advanced (custom model)", "diameter=30 cellproba_threshold=0.0 flow_threshold=0.4 " +
-                            "anisotropy=1.0 diam_threshold=12.0 model_path="+modelpath + "model="+modelpath+" " +
-                            "nuclei_channel=0 cyto_channel=1 dimensionmode=2D " +
-                            "stitch_threshold=-1.0 omni=false cluster=false additional_flags=");
-                    getROIsfromMask();
-                    Roi[] outlines2 = roiManager.getRoisAsArray();
-                    roiManager.reset();
-
-                    boolean[] budding = isBudding(outlines,outlines2);
-                    try {
-                        MakeResults(budding,outlines2);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                 
 
                     ImagePlus output = ImageJFunctions.wrap(img, "Output");
                     output.show();
-                    for (int i = 0; i<outlines2.length;i++){
-                        drawNumbers(i+1,output,outlines2[i]);
-                    }
+                 
                     IJ.save(output, Paths.get(String.valueOf(filePath), filename + "_Overlay.tif").toString());
                     IJ.run("Close All", "");
                 }
             }
         }
 
-        private boolean[] isBudding(Roi[] outlines, Roi[] outlines2){
-        boolean[] output = new boolean[outlines2.length];
-        int[] number = new int[outlines2.length];
-        for(int i = 0; i<outlines2.length; i++){
-            for (int j = 0; j< outlines.length; j++){
-                if(outlines[j].contains((int)outlines2[i].getContourCentroid()[0],(int)outlines2[i].getContourCentroid()[1])){
-                    number[i] = j;
-                }
-            }
-        }
-        for (int k=0;k<outlines2.length;k++){
-            int n = number[k];
-            int count=0;
-            for (int m= 0; m<outlines2.length;m++){
-                if(number[m]==n){
-                    count++;
-                }
-            }
-            if (count>1){
-                output[k]= true;
-            }else {
-                output[k]=false;
-            }
-        }
-        return output;
-        }
-
+    private ImagePlus[] SplitChannelsandGetZ(ImagePlus imp, int zPosition) {
+    	ImagePlus[] channels = new ImagePlus[4];
+    	imp.setZ(zPosition);
+    	
+    	channels[1] = new Duplicator().run(imp, 1, 1, zPosition, zPosition, 1, 1);
+    	channels[1].show();
+    	channels[1].setTitle("RED");
+    	IJ.run(channels[1], "Enhance Contrast", "saturated=0.35");
+    	channels[2] = new Duplicator().run(imp, 2, 2, zPosition, zPosition, 1, 1);
+    	channels[2].show();
+    	channels[2].setTitle("GREEN");
+    	IJ.run(channels[2], "Enhance Contrast", "saturated=0.35");
+    	channels[3] = new Duplicator().run(imp, 3, 3, zPosition, zPosition, 1, 1);
+    	channels[3].show();
+    	channels[3].setTitle("DAPI");
+    	IJ.run(channels[3], "Enhance Contrast", "saturated=0.35");
+    	imp.changes=false;
+    	imp.close();
+    	return channels;
+    }
+    
+    
     private void drawNumbers(int Counter, ImagePlus ProjectedWindow, Roi roi) {
         ImageProcessor ip = ProjectedWindow.getProcessor();
         Font font = new Font("SansSerif", Font.PLAIN, 12);
@@ -206,32 +197,6 @@ public class Thom_Titans<T extends RealType<T>> implements Command {
         } catch (IOException ex) {
             System.out.println(
                     "Error writing to file '" + CreateName + "'");
-        }
-    }
-
-    private void cursorOutline(Img<T> image, Roi[] rois, int value){
-
-        for (Roi roi : rois) {
-            MaskInterval maskIntKin = roiService.toMaskInterval(roi);
-            IterableInterval<T> maskKin = Views.interval(image, maskIntKin);
-            net.imglib2.Cursor<T> cursorKin = maskKin.localizingCursor();
-            colorIn(maskKin, cursorKin, roi, value);
-        }
-
-    }
-
-    private void colorIn(IterableInterval<T> mask, net.imglib2.Cursor<T> cursor, Roi roi, int value ) {
-        for (int k = 0; k < mask.size(); k++) {
-            //RealType<T> value = cursor.get();
-            int x = (int) cursor.positionAsDoubleArray()[0];
-            int y = (int) cursor.positionAsDoubleArray()[1];
-
-            //If the pixel is in the bounding ROI
-            if (roi.contains(x, y)) {
-                cursor.get().setReal(value);
-            }
-            //Move the cursors forwards
-            cursor.fwd();
         }
     }
 
@@ -279,7 +244,7 @@ public class Thom_Titans<T extends RealType<T>> implements Command {
         // create the ImageJ application context with all available services
         final ImageJ ij = new ImageJ();
         ij.ui().showUI();
-        ij.command().run(Thom_Titans.class, true);
+        ij.command().run(Nucleus_Coloc.class, true);
     }
 
 }
