@@ -42,10 +42,13 @@ import org.scijava.ui.UIService;
 import java.io.IOException;
 
 import java.awt.*;
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+//import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -80,7 +83,8 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
     @Parameter
     private ROIService roiService;
 
-    @Parameter(label = "Open Folder: ", style="directory")
+ //   @Parameter(label = "Batch File Location: ", style="directory")
+    @Parameter(label = "Batch File Location: ")
     public File filePath;
 
     @Parameter(label = "Model Path: ")
@@ -98,24 +102,36 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
 
             File[] files = filePath.listFiles();
             roiManager = new RoiManager();
-           
-            for (File file : files) {
-                if (file.toString().contains(".czi") && !file.toString().contains(".czi ")) {
+            String [] lines = null;
+            try {
+				lines = readfile();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+            
+            String[] conVals = lines[0].split("\\t+"); 
+            
+            
+          //  for (File file : files) {
+            for (int b=0;b<lines.length;b++) {
+            	String[] convertVals = lines[b].split("\\t+");
+            //    if (file.toString().contains(".czi") && !file.toString().contains(".czi ")) {
                     //Open file and get filename and filepath
-                    Img<T> img = openDataset(file);
-              //      uiService.show(img);
+                    Img<T> img = openDataset(convertVals[0]);
                     ImagePlus imp = ImageJFunctions.wrap(img,"Title");
                     imp.show();
                     IJ.run(imp, "Enhance Contrast", "saturated=0.35");
                     new WaitForUserDialog("Select Position", "Move the slider to select the correct Z position").show();
-                    int zPosition = imp.getZ();
+                    int zPosition = Integer.parseInt(convertVals[1]);
               
                     
                     ImagePlus[] channels = SplitChannelsandGetZ(imp,zPosition);
                     
-                    filename = FilenameUtils.removeExtension(file.getName());
+                //    filename = FilenameUtils.removeExtension(file.getName());
+                    filename = convertVals[0];
             //        String model = " model_path= "+modelpath.toString();
-                    int size = 85;
+                    int size = 150;
                     
                     Cellpose_Wrapper cpw = new Cellpose_Wrapper(modelpath.getPath(), envpath.getPath(), size, channels[3]);
                     cpw.run(true);
@@ -136,7 +152,7 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
                  
                     IJ.save(output, Paths.get(String.valueOf(filePath), filename + "_Overlay.tif").toString());
                     IJ.run("Close All", "");
-                }
+              //  }
             }
         }
 
@@ -214,9 +230,11 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
         }
     }
 
-        public Img<T> openDataset(File dataset) {
+    //public Img<T> openDataset(File dataset) {
+    public Img<T> openDataset(String dataset) {
             Dataset imageData = null;
-            String filePath = dataset.getPath();
+         //   String filePath = dataset.getPath();
+            String filePath = dataset;
             try {
                 imageData = datasetIOService.open(filePath);
             } catch (IOException e) {
@@ -228,7 +246,30 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
             assert imageData != null;
 
             return (Img<T>)imageData.getImgPlus();
-        }
+     }
+
+     public String[] readfile() throws IOException{
+    	BufferedReader reader = new BufferedReader( new FileReader (filePath));
+    	String line = null;
+    	StringBuilder  stringBuilder = new StringBuilder();
+    	String ls = System.getProperty("line.separator");
+
+    	while( ( line = reader.readLine() ) != null ) {
+    		stringBuilder.append( line );
+    		stringBuilder.append( ls );
+    	}
+    	
+    	String[] lines = stringBuilder.toString().split("\\n");
+    		
+    	//Remove the carriage returns
+    	for(int a=0;a<lines.length;a++) {
+    		lines[a]=lines[a].replace("\r", "");
+    	}
+    		
+    	
+   
+    	return lines;
+    }
 
 
 
