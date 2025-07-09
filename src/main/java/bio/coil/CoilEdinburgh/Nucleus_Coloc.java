@@ -18,23 +18,20 @@ import ij.plugin.frame.RoiManager;
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
 import io.scif.*;
-import io.scif.bf.BioFormatsFormat;
+
 import io.scif.services.DatasetIOService;
 import io.scif.services.FormatService;
-import loci.common.Location;
+
 import net.imagej.Dataset;
 import net.imagej.ImageJ;
-import net.imagej.axis.CalibratedAxis;
+
 import net.imagej.ops.OpService;
 import net.imagej.roi.ROIService;
-import net.imglib2.IterableInterval;
-import net.imglib2.RandomAccessibleInterval;
+
 import net.imglib2.img.Img;
 import net.imglib2.img.display.imagej.ImageJFunctions;
-import net.imglib2.roi.MaskInterval;
+
 import net.imglib2.type.numeric.RealType;
-import net.imglib2.view.Views;
-import org.apache.commons.io.FilenameUtils;
 import org.scijava.command.Command;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
@@ -47,12 +44,10 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.IOException;
-//import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.List;
+
 
 /**
  * This example illustrates how to create an ImageJ {@link Command} plugin.
@@ -100,7 +95,7 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
     @Override
     public void run() {
 
-            File[] files = filePath.listFiles();
+         //   File[] files = filePath.listFiles();
             roiManager = new RoiManager();
             String [] lines = null;
             try {
@@ -113,46 +108,38 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
             String[] conVals = lines[0].split("\\t+"); 
             
             
-          //  for (File file : files) {
+      
             for (int b=0;b<lines.length;b++) {
             	String[] convertVals = lines[b].split("\\t+");
-            //    if (file.toString().contains(".czi") && !file.toString().contains(".czi ")) {
-                    //Open file and get filename and filepath
+                //Open file and get filename and filepath
                     Img<T> img = openDataset(convertVals[0]);
-                    ImagePlus imp = ImageJFunctions.wrap(img,"Title");
-                    imp.show();
-                    IJ.run(imp, "Enhance Contrast", "saturated=0.35");
-                    new WaitForUserDialog("Select Position", "Move the slider to select the correct Z position").show();
-                    int zPosition = Integer.parseInt(convertVals[1]);
-              
-                    
-                    ImagePlus[] channels = SplitChannelsandGetZ(imp,zPosition);
-                    
-                //    filename = FilenameUtils.removeExtension(file.getName());
-                    filename = convertVals[0];
-            //        String model = " model_path= "+modelpath.toString();
-                    int size = 150;
-                    
-                    Cellpose_Wrapper cpw = new Cellpose_Wrapper(modelpath.getPath(), envpath.getPath(), size, channels[3]);
-                    cpw.run(true);
+               ImagePlus imp = ImageJFunctions.wrap(img,"Title");
+               imp.show();
+               IJ.run(imp, "Enhance Contrast", "saturated=0.35");
+               new WaitForUserDialog("Select Position", "Move the slider to select the correct Z position").show();
+               int zPosition = Integer.parseInt(convertVals[1]);
+               ImagePlus[] channels = SplitChannelsandGetZ(imp,zPosition);
+               filename = convertVals[0];
+               int size = 150;
                
-            //        getROIsfromMask();
-            //        Roi[] outlines = roiManager.getRoisAsArray();
-            //        roiManager.reset();
-                    ImagePlus regions = WindowManager.getCurrentImage();
-            //        temp.changes=false;
-             //       temp.close();
+               ImagePlus channelToSegment = channels[Integer.parseInt(convertVals[2])];
+                    
+               Cellpose_Wrapper cpw = new Cellpose_Wrapper(modelpath.getPath(), envpath.getPath(), size, channelToSegment);
+               cpw.run(true);
+               ImagePlus regions = WindowManager.getCurrentImage();
+          
+               //Assign the channels for colocalisation as choosen in the batch file
+               ImagePlus[] channelsToColocalise = new ImagePlus[2];
+               channelsToColocalise[0] = channels[Integer.parseInt(convertVals[2])]; //Assign 1st channel which is in position 2 in the batch file
+               channelsToColocalise[1] = channels[Integer.parseInt(convertVals[3])]; //Assign 2nd channel which is in position 3 in the batch file
+               
+               ColocNuclei calculateColocalisation = new ColocNuclei(regions, channelsToColocalise);
 
-                    ColocNuclei calculateColocalisation = new ColocNuclei(regions, channels);
-
+               ImagePlus output = ImageJFunctions.wrap(img, "Output");
+               output.show();
                  
-
-                    ImagePlus output = ImageJFunctions.wrap(img, "Output");
-                    output.show();
-                 
-                    IJ.save(output, Paths.get(String.valueOf(filePath), filename + "_Overlay.tif").toString());
-                    IJ.run("Close All", "");
-              //  }
+               IJ.save(output, Paths.get(String.valueOf(filePath), filename + "_Overlay.tif").toString());
+               IJ.run("Close All", "");
             }
         }
 
@@ -231,7 +218,8 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
     }
 
     //public Img<T> openDataset(File dataset) {
-    public Img<T> openDataset(String dataset) {
+    @SuppressWarnings("unchecked")
+	public Img<T> openDataset(String dataset) {
             Dataset imageData = null;
          //   String filePath = dataset.getPath();
             String filePath = dataset;
@@ -266,7 +254,7 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
     		lines[a]=lines[a].replace("\r", "");
     	}
     		
-    	
+    	reader.close();
    
     	return lines;
     }

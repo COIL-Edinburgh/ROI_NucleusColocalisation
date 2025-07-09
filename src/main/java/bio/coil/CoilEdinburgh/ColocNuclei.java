@@ -3,22 +3,15 @@ package bio.coil.CoilEdinburgh;
 import java.awt.Dialog;
 import java.awt.Frame;
 import java.awt.Window;
-import java.awt.Window.Type;
-
-import org.scijava.Context;
-import org.scijava.display.Display;
-import org.scijava.display.DisplayService;
 
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
-import ij.gui.Roi;
+
 import ij.measure.ResultsTable;
 import ij.plugin.filter.Analyzer;
-import ij.text.TextWindow;
 
 public class ColocNuclei {
-//	Roi[] outlines;
 	ImagePlus regions;
 	ImagePlus[] channels;
 	
@@ -105,10 +98,7 @@ public class ColocNuclei {
 		String logContents = IJ.getLog();
 		
 		int startIndexPosition = logContents.indexOf(searchTerm);
-		//String searchTermreturn = indexPosition != -1 ? logContents.substring(indexPosition + searchTerm.length()) : "";
-		
 		int lineBreakIndex = logContents.indexOf('\n', startIndexPosition);
-		
 		textContent = logContents.substring(startIndexPosition, lineBreakIndex);
 		return textContent;
 	}
