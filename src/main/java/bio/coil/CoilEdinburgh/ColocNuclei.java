@@ -7,53 +7,49 @@ import java.awt.Window;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
-
-import ij.measure.ResultsTable;
-import ij.plugin.filter.Analyzer;
+import ij.plugin.frame.RoiManager;
 
 public class ColocNuclei {
-	ImagePlus regions;
-	ImagePlus[] channels;
+	ImagePlus regionsImp;
+	String filenames;
 	
-	public ColocNuclei(ImagePlus regions, ImagePlus[] channels) {
-		//IJ.setAutoThreshold(channels[3], "Default dark");
-		int regionsID = regions.getID();
-		int thresholdValue = 1;
-		ResultsTable rt = new ResultsTable();
-		boolean allCounted = true;
-		do {
+	public ColocNuclei(ImagePlus regions, String filename) {
+		this.regionsImp = regions;
+		this.filenames = filename;
+	}	
+		
+	public void run(){
+		int regionsID = regionsImp.getID();
+	
+		RoiManager rm = RoiManager.getRoiManager();
+		
+		for (int a=1;a<rm.getCount()+1;a++) {
+
 			IJ.selectWindow(regionsID);
-			IJ.setRawThreshold(regions, 1, thresholdValue);
-			IJ.run(regions, "Analyze Particles...", "  show=Masks display clear"); //Make Mask from cellpose regions
-			rt=Analyzer.getResultsTable();
-			if(rt.getCounter()>0) {
-				allCounted = false;
-			}
-			
-		//	channels[3].setRoi(outlines[a]);
-		//	if (channels[3].isLockedByAnotherThread()==true) {
-		//		channels[3].unlock();
-		//	}
-		//	channels[3].unlock();
-			
+			IJ.setRawThreshold(regionsImp, a, a);
+			IJ.run(regionsImp, "Analyze Particles...", "  show=Masks display clear"); //Make Mask from cellpose regions
+		
 			ImagePlus tempMask = WindowManager.getCurrentImage();
 			IJ.run(tempMask, "Invert LUT", "");
 			tempMask.setTitle("Mask");
 		
 			IJ.run("Coloc 2", "channel_1=RED channel_2=GREEN roi_or_mask=[Mask] threshold_regression=Costes spearman's_rank_correlation manders'_correlation 2d_intensity_histogram costes'_significance_test psf=4 costes_randomisations=20");
 		
-		
-	//	IJ.run("Coloc 2", "channel_1=DUP_DNMT3C-HAHA_E16_2_rbHA_1_in_200-a568_rtHP1b_1_in_500-a647_4.czi channel_2=DUP_DNMT3C-HAHA_E16_2_rbHA_1_in_200-a568_rtHP1b_1_in_500-a647_4.czi roi_or_mask=[Mask of DUP_DNMT3C-HAHA_E16_2_rbHA_1_in_200-a568_rtHP1b_1_in_500-a647_4.czi] threshold_regression=Costes spearman's_rank_correlation manders'_correlation 2d_intensity_histogram costes'_significance_test psf=4 costes_randomisations=20");
-			ReadLog();
+			String results[] = ReadLog();
+			
+			OutputResults output = new OutputResults(results,a,filenames);
+			output.run();
 			
 			tempMask.changes=false;
 			tempMask.close();
 			
-			thresholdValue++;
-		}while(allCounted==false );
+			
+		}
+		IJ.save(regionsImp, filenames + "_Overlay.tif");
+		rm.reset();
 	}
 	
-	private void ReadLog() {
+	private String[] ReadLog() {
 		
 		//Get Pearsons Values
 		String searchTerm = "Pearson's R value (no threshold), ";
@@ -73,10 +69,18 @@ public class ColocNuclei {
 		searchTerm = "Manders' tM2 (Above autothreshold of Ch1), ";
 		String mandersMTwo = GetTextFromLog(searchTerm);
 		
+		String [] theResults = new String [7];
+		theResults[0]=pearsonsNoThresh;
+		theResults[1]=pearsonsBelowThresh;
+		theResults[2]=pearsonsAboveThresh;
+		theResults[3]=chOneMaxThresh;
+		theResults[4]=chTwoMaxThresh;
+		theResults[5]=mandersMOne;
+		theResults[6]=mandersMTwo;
+		
 		IJ.log("\\Clear");
 		
 		//Close pdf window
-		
 		 Window[] windows = WindowManager.getAllNonImageWindows();
 	        for (Window win : windows) {
 	        	String title = "";
@@ -90,7 +94,7 @@ public class ColocNuclei {
 	            	win.dispose();
 	            }
 	        }
-		
+		return theResults;
 	}
 	
 	private String GetTextFromLog(String searchTerm) {
