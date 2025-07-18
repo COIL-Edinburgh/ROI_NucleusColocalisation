@@ -124,9 +124,16 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
         }
 
     private ImagePlus[] SplitChannelsandGetZ(ImagePlus imp, int zPosition) {
-    	ImagePlus[] channels = new ImagePlus[4];
+    	
+    	ImagePlus[] channels = new ImagePlus[5];
     	imp.setZ(zPosition);
     	
+    	for (int a=1;a<channels.length;a++) {
+    		channels[a] = new Duplicator().run(imp, a, a, zPosition, zPosition, 1, 1);
+        	channels[a].show();
+        	IJ.run(channels[a], "Enhance Contrast", "saturated=0.35");
+    	}
+    /*	
     	channels[1] = new Duplicator().run(imp, 1, 1, zPosition, zPosition, 1, 1);
     	channels[1].show();
     	IJ.run(channels[1], "Enhance Contrast", "saturated=0.35");
@@ -136,6 +143,8 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
     	channels[3] = new Duplicator().run(imp, 3, 3, zPosition, zPosition, 1, 1);
     	channels[3].show();
     	IJ.run(channels[3], "Enhance Contrast", "saturated=0.35");
+    	*/
+    	
     	imp.changes=false;
     	imp.close();
     	return channels;
