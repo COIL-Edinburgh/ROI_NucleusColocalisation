@@ -25,6 +25,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Handles running Cellpose
+ */
 public class CellposeWrapper {
     private final ImagePlus img;
     private final String modelPath;
@@ -41,25 +44,31 @@ public class CellposeWrapper {
 
     TempDirectory tempDir;
 
+    /**
+     * Run Cellpose on the provided image and return masks and RoIs
+     * @param ROIs generate RoIs from Cellpose masks?
+     * @return Cellpose masks image
+     */
     @SuppressWarnings("CallToPrintStackTrace")
     public ImagePlus run(boolean ROIs) {
-
+        // Get and clean a temporary directory
         tempDir = new TempDirectory("temp");
         tempDir.purge(false);
         String tempDirPath = tempDir.getPath().toAbsolutePath().toString();
+        // Save image to file so Cellpose can use it
         new FileSaver(img).saveAsTiff(Paths.get(tempDirPath, "Temp.tif").toString());
 
-        //Construct Commands for cellpose
+        // Construct commands for Cellpose
         List<String> cmd = makeCommands(diameter, modelPath);
 
-        //Send to cellpose
+        // Send commands to Cellpose
         try {
             runCommands(cmd);
         } catch (Exception e) {
             e.printStackTrace();
         }
 
-        //return image
+        // Read masks image produced by Cellpose
         ImagePlus masks = IJ.openImage(Paths.get(tempDirPath, "Temp_cp_masks.tif").toString());
 
         if (ROIs) {
@@ -72,35 +81,51 @@ public class CellposeWrapper {
 
     }
 
+    /**
+     * Produce RoIs from Cellpose masks image
+     * Cellpose masked cells have brightness ranging from 1 to max brightness,
+     * increasing by 1 per region from top-left to bottom-right
+     * @param mask masks image from Cellpose
+     */
     private void getROIsFromMask(ImagePlus mask) {
         mask.show();
         ImageStatistics stats = mask.getStatistics();
-        //For each ROI (intensity per cell mask is +1 to intensity
+        // For each ROI (intensity per cell mask is +1 to intensity)
         for (int i = 1; i < stats.max + 1; i++) {
-            //Set the threshold for the cell and use analyse particles to add to ROI manager
+            // Set the threshold for the cell and use analyse particles to add to ROI manager
             IJ.setThreshold(mask, i, i);
             IJ.run(mask, "Analyze Particles...", "exclude add");
         }
     }
 
+    /**
+     * Prepare command line strings for executing Cellpose
+     * @param diameter expected cell diameter (potentially unused by CPSAM, but we need to provide it anyway?)
+     * @param model path to pretrained model (`cpsam` file)
+     * @return commands to execute Cellpose
+     */
     private List<String> makeCommands(int diameter, String model) {
-        List<String> start_cmd = Arrays.asList("cmd.exe", "/C");
-        List<String> condaCmd = Arrays.asList("CALL", "conda.bat", "activate", envPath);
-        List<String> cellpose_args_cmd = Arrays.asList("python", "-Xutf8", "-m", "cellpose");
-        List<String> options = Arrays.asList("--diameter", diameter + "", "--verbose", "--pretrained_model", model, "--save_tif", "--use_gpu", "--dir", tempDir.getPath().toString());
-        List<String> options2 = Arrays.asList("--chan", "2", "--chan2", "1");
+        List<String> runWithCMD = Arrays.asList("cmd.exe", "/C");
+        List<String> activateCondaEnv = Arrays.asList("CALL", "conda.bat", "activate", envPath);
+        List<String> runCellpose = Arrays.asList("python", "-Xutf8", "-m", "cellpose");
+        List<String> cellposeCommonOpts = Arrays.asList("--diameter", diameter + "", "--verbose", "--pretrained_model", model, "--save_tif", "--use_gpu", "--dir", tempDir.getPath().toString());
+        List<String> cellpose2channelImgOpts = Arrays.asList("--chan", "2", "--chan2", "1");
 
-        List<String> cmd = new ArrayList<>(start_cmd);
-        cmd.addAll(condaCmd);
+        // Assemble commands
+        List<String> cmd = new ArrayList<>(runWithCMD);
+        cmd.addAll(activateCondaEnv);
         cmd.add("&");
-        cmd.addAll(cellpose_args_cmd);
-        cmd.addAll(options);
+        cmd.addAll(runCellpose);
+        cmd.addAll(cellposeCommonOpts);
         if (img.getNChannels() == 2) {
-            cmd.addAll(options2);
+            cmd.addAll(cellpose2channelImgOpts);
         }
         return cmd;
     }
 
+    /**
+     * Encapsulates a temporary directory
+     */
     public static class TempDirectory {
         final Path path;
 
@@ -130,12 +155,19 @@ public class CellposeWrapper {
         }
     }
 
+    /**
+     * Runs the list of commands provided and echoes the output
+     * @param cmd list of commands to run
+     * @throws Exception if we can't set up the process pipe
+     */
     public void runCommands(List<String> cmd) throws Exception {
         ProcessBuilder builder = new ProcessBuilder(cmd);
+        // Capture standard error and standard output
         builder.redirectErrorStream(true);
         Process p = builder.start();
         BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()));
 
+        // Echo output
         for (String line = r.readLine(); line != null; line = r.readLine()) {
             System.out.println(line);
         }

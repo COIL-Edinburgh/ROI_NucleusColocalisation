@@ -53,37 +53,50 @@ public class ColocNuclei {
 
     public void run() {
         try {
+            // Get image window ID
             int regionsID = regionsImp.getID();
 
             RoiManager rm = RoiManager.getRoiManager();
             List<String[]> allCellResults = new ArrayList<>(rm.getCount());
             for (int cellRoiIdx = 1; cellRoiIdx < rm.getCount() + 1; ++cellRoiIdx) {
                 try {
+                    // Select image window
                     IJ.selectWindow(regionsID);
+                    // Set threshold for masking out everything except the current Cellpose RoI
                     IJ.setRawThreshold(regionsImp, cellRoiIdx, cellRoiIdx);
-                    IJ.run(regionsImp, "Analyze Particles...", "  show=Masks display clear"); //Make Mask from cellpose regions
+                    // Make mask for Coloc 2 from the current Cellpose RoI
+                    IJ.run(regionsImp, "Analyze Particles...", "  show=Masks display clear");
 
                     ImagePlus tempMask = WindowManager.getCurrentImage();
                     IJ.run(tempMask, "Invert LUT", "");
                     tempMask.setTitle(MASK_NAME);
+                    // Run Coloc 2
                     IJ.run("Coloc 2", getColoc2options(4, 20));
-
+                    // Store Coloc 2 results
                     allCellResults.add(ReadLog(cellRoiIdx));
-
+                    // Reset temporary mask image
                     tempMask.changes = false;
                     tempMask.close();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
+            // Write Coloc 2 results and Cellpose masks if needed for manual review
             writeCsvWithHeader(allCellResults);
             IJ.save(regionsImp, imageFilePath + "_Overlay.tif");
+            // Clean up RoIs to prepare for next image
             rm.reset();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    /**
+     * Format options for running Coloc 2
+     * @param psf 4
+     * @param costesRandomisations 20
+     * @return string of options for running Coloc 2
+     */
     @SuppressWarnings({"SameParameterValue"})
     private String getColoc2options(int psf, final int costesRandomisations) {
         return String.join(" ", new String[]{
@@ -100,6 +113,10 @@ public class ColocNuclei {
         });
     }
 
+    /**
+     * Write tab-separated values file to `resultsFilePath` with header `resultsHeader` and the provided entries
+     * @param rows list of string arrays where each string is a field and each array is a row/entry
+     */
     private void writeCsvWithHeader(List<String[]> rows) {
         String resultsFileName = imageFilePath.getFileName().toString() + String.format("_results_%s_%s.tsv", channel1, channel2);
         Path resultsFilePath = Paths.get(imageFilePath.getParent().toString(), resultsFileName);
@@ -114,27 +131,33 @@ public class ColocNuclei {
         }
     }
 
+    /**
+     * Read the ImageJ log to parse the output from running the Coloc 2 plugin
+     * @param cellRoiIdx index of the cell/RoI being analysed
+     * @return Coloc 2 output ready to be written to output TSV file
+     */
     private String[] ReadLog(int cellRoiIdx) {
         String[] theResults = {
                 Integer.toString(cellRoiIdx),
-                //Get Pearson's R Values
+                // Get Pearson's R Values
                 getTextAfterSearchTermFromLog("Pearson's R value (no threshold),"),
                 getTextAfterSearchTermFromLog("Pearson's R value (below threshold),"),
                 getTextAfterSearchTermFromLog("Pearson's R value (above threshold),"),
-                //Get Spearman's R
+                // Get Spearman's R Value
                 getTextAfterSearchTermFromLog("Spearman's rank correlation value,"),
-                //Get channel auto-threshold values and Costes p-value
+                // Get channel auto-threshold values and Costes p-value
                 getTextAfterSearchTermFromLog("Ch1 Max Threshold,"),
                 getTextAfterSearchTermFromLog("Ch2 Max Threshold,"),
                 getTextAfterSearchTermFromLog("Costes P-Value,"),
-                //Get Manders' M1 and M2 Values
+                // Get Manders' M1 and M2 Values
                 getTextAfterSearchTermFromLog("Manders' tM1 (Above autothreshold of Ch2),"),
                 getTextAfterSearchTermFromLog("Manders' tM2 (Above autothreshold of Ch1),")
         };
 
+        // Clear the ImageJ log to ensure we get the latest and not the first search results
         IJ.log("\\Clear");
 
-        //Close pdf window
+        // Close dialogs and pdf windows
         Window[] windows = WindowManager.getAllNonImageWindows();
         for (Window win : windows) {
             String title = "";
@@ -151,6 +174,11 @@ public class ColocNuclei {
         return theResults;
     }
 
+    /**
+     * Searches the ImageJ log window for the provided search term and returns the text following it
+     * @param searchTerm text to search to ImageJ log for
+     * @return text following the search term
+     */
     private String getTextAfterSearchTermFromLog(String searchTerm) {
         String logContents = IJ.getLog();
         int startIndexPosition = logContents.indexOf(searchTerm);

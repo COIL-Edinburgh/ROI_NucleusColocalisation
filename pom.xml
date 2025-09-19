@@ -17,7 +17,7 @@
     <version>1.1.1</version>
 
     <name>Nucleus Colocalisation</name>
-    <description>A project to measure co-localisation is specific cell nuclei</description>
+    <description>A Fiji plugin to measure co-localisation in specific cell nuclei</description>
     <url>https://www.ed.ac.uk/biology/wcb/centre-optical-instrumentation-laboratory-coil</url>
     <inceptionYear>2025</inceptionYear>
     <organization>
@@ -33,7 +33,6 @@
     </licenses>
 
     <developers>
-        <!-- See https://imagej.net/Team -->
         <developer>
             <id>CoilEdinburgh</id>
             <name>David Kelly</name>
@@ -59,13 +58,6 @@
             </roles>
         </contributor>
     </contributors>
-
-    <mailingLists>
-        <mailingList>
-            <name>Image.sc Forum</name>
-            <archive>https://forum.image.sc/tag/imagej</archive>
-        </mailingList>
-    </mailingLists>
 
     <scm>
         <connection>scm:git:https://github.com/CoilEdinburgh/Nucleus_Coloc</connection>
@@ -160,33 +152,6 @@
             <version>2.17.0</version>
         </dependency>
     </dependencies>
-<!--    <build>-->
-<!--        <plugins>-->
-<!--            <plugin>-->
-<!--                <groupId>org.apache.maven.plugins</groupId>-->
-<!--                <artifactId>maven-assembly-plugin</artifactId>-->
-<!--                <version>3.7.1</version>-->
-<!--                <configuration>-->
-<!--                    <descriptorRefs>-->
-<!--                        <descriptorRef>jar-with-dependencies</descriptorRef>-->
-<!--                    </descriptorRefs>-->
-<!--                    <archive>-->
-<!--                        <manifest>-->
-<!--                            <mainClass>bio.coil.CoilEdinburgh.Nucleus_Coloc</mainClass>-->
-<!--                        </manifest>-->
-<!--                    </archive>-->
-<!--                </configuration>-->
-<!--                <executions>-->
-<!--                    <execution>-->
-<!--                        <id>make-assembly</id>-->
-<!--                        <phase>package</phase>-->
-<!--                        <goals>-->
-<!--                            <goal>single</goal>-->
-<!--                        </goals>-->
-<!--                    </execution>-->
-<!--                </executions>-->
-<!--            </plugin>-->
-<!--        </plugins>-->
-<!--    </build>-->
+
 </project>
 

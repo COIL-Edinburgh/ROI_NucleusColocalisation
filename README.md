@@ -6,70 +6,41 @@
 3. [Apache Commons CSV](https://repo1.maven.org/maven2/org/apache/commons/commons-csv/1.14.0/commons-csv-1.14.0.jar)
 4. [Apache Commons IO](https://repo1.maven.org/maven2/commons-io/commons-io/2.17.0/commons-io-2.17.0.jar)
 
-### The below is ImageJ2 plugin project readme boilerplate
+## Build instructions
 
-For an example Maven project implementing an **original ImageJ plugin**, see:
-    https://github.com/imagej/example-legacy-plugin
+1. Install Cellpose and all requirements
+2. Ensure the `cpsam` file is present in the `%USERDATA%/.cellpose/models` folder (this might need you to run Cellpose on a test TIF image) 
+3. Run the Maven lifecycle `package` task
+4. Download the Apache Commons IO and CSV `.jar` files from the links above
+5. Copy them to  the `Fiji.app/jars/` folder
+6. Copy the `Nucleus_Coloc-1.1.1.jar` file from the `target` folder to the `Fiji.app/plugins/` folder
+7. Reload the Fiji menus 
+8. The co-localisation plugin should show up under `Plugins` > `Users Plugins` > `Nucleus Colocalisation`
+9. Specify the path to the locally installed Cellpose environment in the opened dialog window
+   - For `conda` installs this is within the `env` folder of the `conda` installation folder
+10. Specify path to input batch file (see next section for format)
+11. Specify the thresholding mode to use - `Bisection` worked better for calculating `Pearson's R` values above threshold 
+## Data input format
 
-It is intended as an ideal starting point to develop new ImageJ2 commands
-in an IDE of your choice. You can even collaborate with developers using a
-different IDE than you.
+Text file with tab separated values and the header as below:
 
-* In [Eclipse](http://eclipse.org), for example, it is as simple as
-  _File &#8250; Import... &#8250; Existing Maven Project_.
+Header:
 
-* In [NetBeans](http://netbeans.org), it is even simpler:
-  _File &#8250; Open Project_.
+`imageFilePath	zSlice	segmentationChannelIdx	segmentationChannelName	comparisonChannelIdx	comparisonChannelName`
 
-* The same works in [IntelliJ](http://jetbrains.net).
+Each row should then specify:
 
-* If [jEdit](http://jedit.org) is your preferred IDE, you will need the
-  [Maven Plugin](http://plugins.jedit.org/plugins/?MavenPlugin).
+`<full file path to .czi image file>    <slice in Z-stack to analyse (1-based)> <index of channel to use for segmenting cells (1-based)>	<name of channel to use for segmenting cells (arbitrary)> <index of channel to use for co-localisation comparison with segmenting channel (1-based)>	<name of channel to use for co-localisation comparison (arbitrary)>`
 
-Die-hard command-line developers can use Maven directly by calling `mvn`
-in the project root.
+## Data output format
 
-However you build the project, in the end you will have the `.jar` file
-(called *artifact* in Maven speak) in the `target/` subdirectory.
+For each combination of image file and channels, 2 results files will be produced in the same directory as the input image file:
 
-To copy the artifact into the correct place, you can call
-`mvn -Dscijava.app.directory="/path/to/ImageJ2.app/"`.
-This will not only copy your artifact, but also all the dependencies.
-
-Developing code in an IDE is convenient, especially for debugging.
-To that end, this project contains a `main` method which launches ImageJ2,
-loads an image and runs the command.
-
-Since this project is intended as a starting point for your own
-developments, it is in the public domain.
-
-How to use this project as a starting point
-===========================================
-
-1. Visit [this link](https://github.com/imagej/example-imagej2-command/generate)
-   to create a new repository in your space using this one as a template.
-
-2. [Clone your new repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository).
-
-3. Edit the `pom.xml` file, fixing all the lines labeled `FIXME`.
-
-4. Remove the `GaussFiltering.java` file and add your own `.java` files
-   to `src/main/java/<package>/` (if you need supporting files such as icons
-   in the resulting `.jar` file, put them into `src/main/resources/`)
-
-5. Replace the contents of `README.md` with information about your project.
-
-6. Make your initial
-   [commit](https://docs.github.com/en/desktop/contributing-and-collaborating-using-github-desktop/making-changes-in-a-branch/committing-and-reviewing-changes-to-your-project) and
-   [push the results](https://docs.github.com/en/get-started/using-git/pushing-commits-to-a-remote-repository)!
-
-### Eclipse: To ensure that Maven copies the command to your ImageJ2 folder
-
-1. Go to _Run Configurations..._
-2. Choose _Maven Build_
-3. Add the following parameter:
-    - name: `scijava.app.directory`
-    - value: `/path/to/ImageJ2.app/`
-
-This ensures that the final `.jar` file will also be copied
-into your ImageJ2 folder everytime you run the Maven build.
+- `<image_file>.czi_Overlay.tif`
+  - Cellpose-defined RoIs for ImageJ with RoI IDs
+- `<image_file>.czi_results_<segmentationChannelName>_<comparisonChannelName>.tsv`
+  - Tab-separated values file in the below format:
+    - Header:
+      - `Cell	Pearson's R (No threshold)	Pearson's R (Below threshold)	Pearson's R (Above threshold)	Spearman's R	<Segmentation> channel (C1) Costes auto threshold	<Comparison> channel (C2) Costes auto threshold	Costes p-value	Manders' tM1 (above <Comparison> channel (C2) threshold)	Manders' tM2 (above <Segmentation> channel (C1) threshold)`
+    - Each row (for all numbered RoIs in the `_Overlay.tif` file):
+      - `<RoI ID as in the overlay.tif file>	<Pearson's R (No threshold)>	<Pearson's R (Below threshold)>	<Pearson's R (Above threshold)>	<Spearman's R>	<Segmentation channel Costes auto threshold>	<Comparison channel Costes auto threshold>	<Costes p-value>	<Manders' tM1>	<Manders' tM2>`

@@ -45,9 +45,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * This example illustrates how to create an ImageJ {@link Command} plugin.
- * <p>
- * </p>
+ * Class implementing the Fiji plugin frontend
  */
 @Plugin(type = Command.class, menuPath = "Plugins>Users Plugins>Nucleus Colocalisation")
 public class Nucleus_Coloc<T extends RealType<T>> implements Command {
@@ -97,6 +95,10 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
         return zPos;
     }
 
+    /**
+     * Basic format for TSV files
+     * @return CSV format for tab-delimited fields
+     */
     public static CSVFormat.Builder getTsvBaseFormat() {
         return CSVFormat.TDF.builder()
                 .setEscape(null)
@@ -104,18 +106,24 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
                 .setIgnoreEmptyLines(true);
     }
 
+    /**
+     * Plugin code
+     */
     @Override
     @SuppressWarnings({"unchecked", "CallToPrintStackTrace"})
     public void run() {
 
         roiManager = new RoiManager();
         try (Reader batchFileReader = new FileReader(batchFilePath)) {
+            // Set format for input TSV file
             Iterable<CSVRecord> batchJobDetails = getTsvBaseFormat()
                     .setHeader()
                     .setSkipHeaderRecord(true)
                     .get()
                     .parse(batchFileReader);
+            // For each row in the input TSV file
             for (CSVRecord jobDetail : batchJobDetails) {
+                // Read in and prepare image file
                 Path imageFilePath = Paths.get(jobDetail.get("imageFilePath"));
                 if (!imageFilePath.toFile().exists()) {
                     throw new IllegalArgumentException("File does not exist: " + imageFilePath.toAbsolutePath());
@@ -126,18 +134,21 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
 
                 ImagePlus[] channels = SplitChannelsAndGetZ(imp, parseZPos(jobDetail.get("zSlice"), imp.getNSlices()));
 
+                // Select channels for segmentation and comparison
                 int maxChannels = imp.getNChannels();
                 int segmentationChannelIdx = parseChannelIndex(jobDetail.get("segmentationChannelIdx"), maxChannels);
                 int comparisonChannelIdx = parseChannelIndex(jobDetail.get("comparisonChannelIdx"), maxChannels);
 
                 ImagePlus channelToSegment = channels[segmentationChannelIdx];
 
+                // Name channels to make things more descriptive
                 String segmentationChannelName = jobDetail.get("segmentationChannelName");
                 String comparisonChannelName = jobDetail.get("comparisonChannelName");
 
                 channels[segmentationChannelIdx].setTitle(segmentationChannelName);
                 channels[comparisonChannelIdx].setTitle(comparisonChannelName);
 
+                // Run Cellpose to get cell RoIs
                 RoiManager rm = RoiManager.getRoiManager();
                 rm.reset();
                 int size = 150;
@@ -145,12 +156,14 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
                 ImagePlus ignored = cpw.run(true);
                 ImagePlus regions = WindowManager.getCurrentImage();
 
+                // Run Coloc2 on RoIs identified by Cellpose
                 ColocNuclei calculateColocalisation = new ColocNuclei(
                         regions, imageFilePath,
                         segmentationChannelName, comparisonChannelName,
                         AutoThresholdAlgorithm.valueOf(autoThresholdAlgorithm));
                 calculateColocalisation.run();
 
+                // Clean up windows
                 IJ.run("Close All", "");
             }
             new WaitForUserDialog("Finished", "Plugin Finished").show();
@@ -159,6 +172,12 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
         }
     }
 
+    /**
+     * Duplicates individual channels of the image `imp` at the indicated `zPosition` for use by Cellpose and Coloc 2
+     * @param imp image to select slice and separate channels
+     * @param zPosition index of z-slice to analyse (1-based)
+     * @return array of individual channels of the image for the requested z-position
+     */
     private ImagePlus[] SplitChannelsAndGetZ(ImagePlus imp, int zPosition) {
         ImagePlus[] channels = new ImagePlus[imp.getNChannels() + 1];
         if (zPosition <= 0 || zPosition > imp.getNSlices()) {
