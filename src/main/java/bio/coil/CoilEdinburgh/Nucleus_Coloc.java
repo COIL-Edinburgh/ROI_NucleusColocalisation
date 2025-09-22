@@ -13,6 +13,7 @@ package bio.coil.CoilEdinburgh;
  *     http://creativecommons.org/publicdomain/zero/1.0/
  */
 
+import bio.coil.CoilEdinburgh.ColocNuclei.AutoThresholdAlgorithm;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
@@ -20,11 +21,9 @@ import ij.gui.WaitForUserDialog;
 import ij.plugin.Duplicator;
 import ij.plugin.frame.RoiManager;
 
-import io.scif.*;
 import io.scif.services.DatasetIOService;
 import io.scif.services.FormatService;
 
-import net.imagej.Dataset;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
 import net.imagej.roi.ROIService;
@@ -32,17 +31,18 @@ import net.imglib2.img.Img;
 import net.imglib2.img.display.imagej.ImageJFunctions;
 import net.imglib2.type.numeric.RealType;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVRecord;
 import org.scijava.command.Command;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 import org.scijava.ui.UIService;
-import java.io.IOException;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.util.*;
-
+import java.io.Reader;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  * This example illustrates how to create an ImageJ {@link Command} plugin.
@@ -51,7 +51,7 @@ import java.util.*;
  */
 @Plugin(type = Command.class, menuPath = "Plugins>Users Plugins>Nucleus Colocalisation")
 public class Nucleus_Coloc<T extends RealType<T>> implements Command {
- 
+
     @Parameter
     private FormatService formatService;
 
@@ -68,130 +68,113 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
     private ROIService roiService;
 
     @Parameter(label = "Batch File Location: ")
-    public File filePath;
+    public File batchFilePath;
 
     @Parameter(label = "Model Path: ")
-    public File modelpath;
+    public File modelPath;
 
     @Parameter(label = "Cellpose Environment Path: ", style = "directory")
-    public File envpath;
-    
-    RoiManager roiManager;
-    double pixelSize;
+    public File envPath;
 
-    String filename;
-    @Override
+    @Parameter(label = "Pearson's Auto-Threshold Algorithm: ", choices = {"Costes", "Bisection"})
+    public String autoThresholdAlgorithm;
+
+    RoiManager roiManager;
+
+    private static int parseChannelIndex(String channelIndex, int maxChannels) {
+        int channelIdx = Integer.parseInt(channelIndex);
+        if (channelIdx <= 0 || channelIdx > maxChannels) {
+            throw new IllegalArgumentException("Channel index out of bounds: " + channelIdx + ", must be between 1 and " + maxChannels);
+        }
+        return channelIdx;
+    }
+
+    private static int parseZPos(String zPosition, int maxSlices) {
+        int zPos = Integer.parseInt(zPosition);
+        if (zPos <= 0 || zPos > maxSlices) {
+            throw new IllegalArgumentException("Z position out of bounds: " + zPos + ", must be between 1 and " + maxSlices);
+        }
+        return zPos;
+    }
+
+    public static CSVFormat.Builder getTsvBaseFormat() {
+        return CSVFormat.TDF.builder()
+                .setEscape(null)
+                .setQuote(null)
+                .setIgnoreEmptyLines(true);
+    }
+
+    @SuppressWarnings("unchecked")
+	@Override
     public void run() {
 
-            roiManager = new RoiManager();
-            String [] lines = null;
-            try {
-				lines = readfile();
-			} catch (IOException e) {
-				
-				e.printStackTrace();
-			}
-            
-            for (int b=0;b<lines.length;b++) {
-            	
-            	String[] convertVals = lines[b].split("\\t+");
-                //Open file and get filename and filepath
-                Img<T> img = openDataset(convertVals[0]);
-                ImagePlus imp = ImageJFunctions.wrap(img,"Title");
- 
-               int zPosition = Integer.parseInt(convertVals[1]);
-               ImagePlus[] channels = SplitChannelsandGetZ(imp,zPosition);
-               filename = convertVals[0];
-               int size = 150;
-               
-               ImagePlus channelToSegment = channels[Integer.parseInt(convertVals[2])];
-               channelToSegment.show();
-               
-               channels[Integer.parseInt(convertVals[2])].setTitle("RED");
-               channels[Integer.parseInt(convertVals[3])].setTitle("GREEN");
-               RoiManager rm = RoiManager.getRoiManager();
-               rm.reset();
-               Cellpose_Wrapper cpw = new Cellpose_Wrapper(modelpath.getPath(), envpath.getPath(), size, channelToSegment);
-               cpw.run(true);
-               ImagePlus regions = WindowManager.getCurrentImage();
-        
-               ColocNuclei calculateColocalisation = new ColocNuclei(regions,filename);
-               calculateColocalisation.run();
-               
-               IJ.run("Close All", "");
+        roiManager = new RoiManager();
+        try (Reader batchFileReader = new FileReader(batchFilePath)) {
+            Iterable<CSVRecord> batchJobDetails = getTsvBaseFormat()
+                    .setHeader()
+                    .setSkipHeaderRecord(true)
+                    .get()
+                    .parse(batchFileReader);
+            for (CSVRecord jobDetail : batchJobDetails) {
+                Path imageFilePath = Paths.get(jobDetail.get("imageFilePath"));
+                if (!imageFilePath.toFile().exists()) {
+                    throw new IllegalArgumentException("File does not exist: " + imageFilePath.toAbsolutePath());
+                }
+                Img<T> imp_temp = (Img<T>) datasetIOService.open(imageFilePath.toString()).getImgPlus();
+                String title = imageFilePath.getFileName().toString();
+                ImagePlus imp = ImageJFunctions.wrap(imp_temp, title);
+
+                ImagePlus[] channels = SplitChannelsAndGetZ(imp, parseZPos(jobDetail.get("zSlice"), imp.getNSlices()));
+
+                int maxChannels = imp.getNChannels();
+                int segmentationChannelIdx = parseChannelIndex(jobDetail.get("segmentationChannelIdx"), maxChannels);
+                int comparisonChannelIdx = parseChannelIndex(jobDetail.get("comparisonChannelIdx"), maxChannels);
+
+                ImagePlus channelToSegment = channels[segmentationChannelIdx];
+
+                String segmentationChannelName = jobDetail.get("segmentationChannelName");
+                String comparisonChannelName = jobDetail.get("comparisonChannelName");
+
+                channels[segmentationChannelIdx].setTitle(segmentationChannelName);
+                channels[comparisonChannelIdx].setTitle(comparisonChannelName);
+
+                RoiManager rm = RoiManager.getRoiManager();
+                rm.reset();
+                int size = 150;
+                CellposeWrapper cpw = new CellposeWrapper(modelPath.getPath(), envPath.getPath(), size, channelToSegment);
+                ImagePlus ignored = cpw.run(true);
+                ImagePlus regions = WindowManager.getCurrentImage();
+
+                ColocNuclei calculateColocalisation = new ColocNuclei(
+                        regions, imageFilePath,
+                        segmentationChannelName, comparisonChannelName,
+                        AutoThresholdAlgorithm.valueOf(autoThresholdAlgorithm));
+                calculateColocalisation.run();
+
+                IJ.run("Close All", "");
             }
             new WaitForUserDialog("Finished", "Plugin Finished").show();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
-    private ImagePlus[] SplitChannelsandGetZ(ImagePlus imp, int zPosition) {
-    	
-    	ImagePlus[] channels = new ImagePlus[5];
-    	imp.setZ(zPosition);
-    	
-    	for (int a=1;a<channels.length;a++) {
-    		channels[a] = new Duplicator().run(imp, a, a, zPosition, zPosition, 1, 1);
-        	channels[a].show();
-        	IJ.run(channels[a], "Enhance Contrast", "saturated=0.35");
-    	}
-    /*	
-    	channels[1] = new Duplicator().run(imp, 1, 1, zPosition, zPosition, 1, 1);
-    	channels[1].show();
-    	IJ.run(channels[1], "Enhance Contrast", "saturated=0.35");
-    	channels[2] = new Duplicator().run(imp, 2, 2, zPosition, zPosition, 1, 1);
-    	channels[2].show();
-    	IJ.run(channels[2], "Enhance Contrast", "saturated=0.35");
-    	channels[3] = new Duplicator().run(imp, 3, 3, zPosition, zPosition, 1, 1);
-    	channels[3].show();
-    	IJ.run(channels[3], "Enhance Contrast", "saturated=0.35");
-    	*/
-    	
-    	imp.changes=false;
-    	imp.close();
-    	return channels;
     }
 
-    
-    @SuppressWarnings("unchecked")
-	public Img<T> openDataset(String dataset) {
-            Dataset imageData = null;
-            String filePath = dataset;
-            try {
-                imageData = datasetIOService.open(filePath);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            Map<String, Object> prop = imageData.getProperties();
-            DefaultImageMetadata metaData = (DefaultImageMetadata) prop.get("scifio.metadata.image");
-            pixelSize = metaData.getAxes().get(0).calibratedValue(1);
-            assert imageData != null;
+    private ImagePlus[] SplitChannelsAndGetZ(ImagePlus imp, int zPosition) {
+        ImagePlus[] channels = new ImagePlus[imp.getNChannels() + 1];
+        if (zPosition <= 0 || zPosition > imp.getNSlices()) {
+            throw new IllegalArgumentException(String.format("zPosition out of bounds - should be from 1 to %d", imp.getNSlices()));
+        }
+        imp.setZ(zPosition);
 
-            return (Img<T>)imageData.getImgPlus();
-     }
-
-     public String[] readfile() throws IOException{
-    	BufferedReader reader = new BufferedReader( new FileReader (filePath));
-    	String line = null;
-    	StringBuilder  stringBuilder = new StringBuilder();
-    	String ls = System.getProperty("line.separator");
-
-    	while( ( line = reader.readLine() ) != null ) {
-    		stringBuilder.append( line );
-    		stringBuilder.append( ls );
-    	}
-    	
-    	String[] lines = stringBuilder.toString().split("\\n");
-    		
-    	//Remove the carriage returns
-    	for(int a=0;a<lines.length;a++) {
-    		lines[a]=lines[a].replace("\r", "");
-    	}
-    		
-    	reader.close();
-   
-    	return lines;
+        for (int channel = 1; channel < channels.length; ++channel) {
+            channels[channel] = new Duplicator().run(imp, channel, channel, zPosition, zPosition, 1, 1);
+            channels[channel].show();
+            IJ.run(channels[channel], "Enhance Contrast", "saturated=0.35");
+        }
+        imp.changes = false;
+        imp.close();
+        return channels;
     }
-
-
 
     /**
      * This main function serves for development purposes.
@@ -199,9 +182,8 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
      * your integrated development environment (IDE).
      *
      * @param args whatever, it's ignored
-     * @throws Exception
      */
-    public static void main(final String... args) throws Exception {
+    public static void main(final String... args) {
         // create the ImageJ application context with all available services
         final ImageJ ij = new ImageJ();
         ij.ui().showUI();

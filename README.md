@@ -1,4 +1,12 @@
-This is an example Maven project implementing an ImageJ2 command.
+# ImageJ2 plugin implementing co-localisation within Cellpose-defined RoIs
+
+## Dependencies
+1. [Cellpose SAM](https://github.com/MouseLand/cellpose) 
+2. SciJava libraries (shipped with Fiji)
+3. [Apache Commons CSV](https://repo1.maven.org/maven2/org/apache/commons/commons-csv/1.14.0/commons-csv-1.14.0.jar)
+4. [Apache Commons IO](https://repo1.maven.org/maven2/commons-io/commons-io/2.17.0/commons-io-2.17.0.jar)
+
+### The below is ImageJ2 plugin project readme boilerplate
 
 For an example Maven project implementing an **original ImageJ plugin**, see:
     https://github.com/imagej/example-legacy-plugin
