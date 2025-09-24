@@ -17,10 +17,11 @@ import bio.coil.CoilEdinburgh.ColocNuclei.AutoThresholdAlgorithm;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
+import ij.gui.Roi;
 import ij.gui.WaitForUserDialog;
 import ij.plugin.Duplicator;
 import ij.plugin.frame.RoiManager;
-
+import ij.process.ImageStatistics;
 import io.scif.services.DatasetIOService;
 import io.scif.services.FormatService;
 
@@ -138,17 +139,27 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
                 channels[segmentationChannelIdx].setTitle(segmentationChannelName);
                 channels[comparisonChannelIdx].setTitle(comparisonChannelName);
 
-                RoiManager rm = RoiManager.getRoiManager();
-                rm.reset();
+               // roiManager=RoiManager.getRoiManager();
+              //  Roi[] outlines = roiManager.getRoisAsArray();  //Assign the identified nuclei to an ROI array
+                Roi[] outlines = FindNuclei(channels);
+                
+         //       RoiManager rm = RoiManager.getRoiManager();
+          //      rm.reset();
                 int size = 150;
                 CellposeWrapper cpw = new CellposeWrapper(modelPath.getPath(), envPath.getPath(), size, channelToSegment);
-                ImagePlus ignored = cpw.run(true);
-                ImagePlus regions = WindowManager.getCurrentImage();
-
+                @SuppressWarnings("unused")
+				ImagePlus ignored = cpw.run(true);
+           //     ImagePlus regions = WindowManager.getCurrentImage();
+                getROIsfromMask();
+                roiManager=RoiManager.getRoiManager();
+                Roi[] regions  = roiManager.getRoisAsArray();  //Assign the identified nuclei to an ROI array
+                roiManager.reset();
+                ImagePlus maskImage = WindowManager.getCurrentImage();
+                
                 ColocNuclei calculateColocalisation = new ColocNuclei(
                         regions, imageFilePath,
                         segmentationChannelName, comparisonChannelName,
-                        AutoThresholdAlgorithm.valueOf(autoThresholdAlgorithm));
+                        AutoThresholdAlgorithm.valueOf(autoThresholdAlgorithm), outlines, maskImage);
                 calculateColocalisation.run();
 
                 IJ.run("Close All", "");
@@ -159,6 +170,39 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
         }
     }
 
+    private Roi[] FindNuclei(ImagePlus[] channels) {
+    	
+    	Roi[] outlines = null;
+    	int size =150;
+    	ImagePlus dapiChannel = channels[1];
+    	CellposeWrapper cpw = new CellposeWrapper(modelPath.getPath(), envPath.getPath(), size,  dapiChannel);
+        ImagePlus nuc = cpw.run(true);
+    	
+        getROIsfromMask();
+        roiManager=RoiManager.getRoiManager();
+        outlines = roiManager.getRoisAsArray();  //Assign the identified nuclei to an ROI array
+        roiManager.reset();
+        nuc.changes= false;
+        nuc.close();
+    	return outlines;
+    }
+    
+  //Adds the Masks created by cellpose to the ROI manager
+    public void getROIsfromMask() {
+
+        //Gets the current image (the mask output from cellpose)
+        ImagePlus mask = WindowManager.getCurrentImage();
+        ImageStatistics stats = mask.getStatistics();
+        RoiManager rm = RoiManager.getRoiManager();
+        rm.reset();
+        //For each ROI (intensity per cell mask is +1 to intensity
+        for (int i = 1; i < stats.max + 1; i++) {
+            //Set the threshold for the cell and use analyse particles to add to ROI manager
+            IJ.setThreshold(mask, i, i);
+            IJ.run(mask, "Analyze Particles...", "add");
+        }
+    }
+    
     private ImagePlus[] SplitChannelsAndGetZ(ImagePlus imp, int zPosition) {
         ImagePlus[] channels = new ImagePlus[imp.getNChannels() + 1];
         if (zPosition <= 0 || zPosition > imp.getNSlices()) {

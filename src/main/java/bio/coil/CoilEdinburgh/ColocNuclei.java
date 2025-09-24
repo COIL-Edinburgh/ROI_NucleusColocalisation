@@ -14,6 +14,7 @@ import java.util.List;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
+import ij.gui.Roi;
 import ij.plugin.frame.RoiManager;
 import org.apache.commons.csv.CSVPrinter;
 
@@ -23,15 +24,20 @@ public class ColocNuclei {
 
     }
     public static final String MASK_NAME = "Mask";
-    private final ImagePlus regionsImp;
+  //  private final ImagePlus regionsImp;
+ //   private final Roi[] regionsImp;
     private final Path imageFilePath;
     private final String channel1;
     private final String channel2;
     private final String[] resultsHeader;
     private final AutoThresholdAlgorithm autoThresholdAlgorithm;
+    private final Roi[] nucs;
+    private final ImagePlus mask;
 
-    public ColocNuclei(ImagePlus regions, Path imageFilePath, String channel1, String channel2, AutoThresholdAlgorithm autoThresholdAlgorithm) {
-        this.regionsImp = regions;
+ //   public ColocNuclei(ImagePlus regions, Path imageFilePath, String channel1, String channel2, AutoThresholdAlgorithm autoThresholdAlgorithm, Roi[] nucOutlines) {
+    public ColocNuclei(Roi[] regions, Path imageFilePath, String channel1, String channel2, AutoThresholdAlgorithm autoThresholdAlgorithm, Roi[] nucOutlines, ImagePlus maskImage) {
+    	     
+    //	this.regionsImp = regions;
         this.imageFilePath = imageFilePath;
         this.channel1 = channel1;
         this.channel2 = channel2;
@@ -48,35 +54,53 @@ public class ColocNuclei {
                 String.format("Manders' tM2 (above %s channel (C1) threshold)", channel1)
         };
         this.autoThresholdAlgorithm = autoThresholdAlgorithm;
+        this.nucs = nucOutlines;
+        this.mask = maskImage;
     }
 
     public void run() {
         try {
-            int regionsID = regionsImp.getID();
+         //   int regionsID = regionsImp.getID();
 
             RoiManager rm = RoiManager.getRoiManager();
             List<String[]> allCellResults = new ArrayList<>(rm.getCount());
-            for (int cellRoiIdx = 1; cellRoiIdx < rm.getCount() + 1; ++cellRoiIdx) {
-                try {
-                    IJ.selectWindow(regionsID);
-                    IJ.setRawThreshold(regionsImp, cellRoiIdx, cellRoiIdx);
-                    IJ.run(regionsImp, "Analyze Particles...", "  show=Masks display clear"); //Make Mask from cellpose regions
+           // for (int cellRoiIdx = 1; cellRoiIdx < rm.getCount() + 1; ++cellRoiIdx) {
+            IJ.selectWindow(channel1);
+        	ImagePlus currentWindow = WindowManager.getCurrentImage();
+        	
+            for (int nucRoiIdx = 0; nucRoiIdx < nucs.length; ++nucRoiIdx) {	
+            	
+            	int isGreenPositive = 0;
+            	isGreenPositive = checkIfItsAGreenCell(currentWindow,nucRoiIdx);
+            	int cellRoiIdx = isGreenPositive;
+            	if(isGreenPositive>0) {
+            	
+            		try 	{
+            			int maskID = mask.getID();
+            			IJ.selectWindow(maskID);
+            			IJ.setRawThreshold(mask, cellRoiIdx, cellRoiIdx);
+            			IJ.run(mask, "Analyze Particles...", "  show=Masks display clear"); //Make Mask from cellpose regions
+            		//	Roi roiToTest = nucs[cellRoiIdx];
+            		//	currentWindow.setRoi(roiToTest);
+            		//	IJ.run(currentWindow, "Analyze Particles...", "  show=Masks display clear"); //Make Mask from cellpose regions
 
-                    ImagePlus tempMask = WindowManager.getCurrentImage();
-                    IJ.run(tempMask, "Invert LUT", "");
-                    tempMask.setTitle(MASK_NAME);
-                    IJ.run("Coloc 2", getColoc2options(4, 20));
+                		ImagePlus tempMask = WindowManager.getCurrentImage();
+                    	IJ.run(tempMask, "Invert LUT", "");
+                    	tempMask.setTitle(MASK_NAME);
+                    	IJ.run("Coloc 2", getColoc2options(4, 20));
 
-                    allCellResults.add(ReadLog(cellRoiIdx));
+                    	allCellResults.add(ReadLog(cellRoiIdx));
 
-                    tempMask.changes = false;
-                    tempMask.close();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                    	tempMask.changes = false;
+                    	tempMask.close();
+                	} catch (Exception e) {
+                    	e.printStackTrace();
+                	}
+            	}
             }
             writeCsvWithHeader(allCellResults);
-            IJ.save(regionsImp, imageFilePath + "_Overlay.tif");
+    //        IJ.save(regionsImp, imageFilePath + "_Overlay.tif");
+            IJ.save(mask, imageFilePath + "_Overlay.tif");
             rm.reset();
         } catch (Exception e) {
             e.printStackTrace();
@@ -92,9 +116,9 @@ public class ColocNuclei {
                 "spearman's_rank_correlation",
                 "manders'_correlation",
                 "2d_intensity_histogram",
-                "costes'_significance_test",
+         /*       "costes'_significance_test",
                 "psf=" + psf,
-                "costes_randomisations=" + costesRandomisations,
+                "costes_randomisations=" + costesRandomisations, */
         });
     }
 
@@ -160,4 +184,15 @@ public class ColocNuclei {
         return logContents.substring(startIndexPosition + searchTerm.length() + 1, lineBreakIndex).trim();
     }
 
+    private int checkIfItsAGreenCell(ImagePlus currentWindow, int cellRoiIdx) {
+    	int itsGreen = 0;
+    	Roi roiToTest = nucs[cellRoiIdx];
+    	mask.setRoi(roiToTest);
+    	double regionValue = roiToTest.getStatistics().max;
+    	
+    	if (regionValue>0){
+    		itsGreen = (int) regionValue;
+    	}
+    	return itsGreen;
+    }
 }
