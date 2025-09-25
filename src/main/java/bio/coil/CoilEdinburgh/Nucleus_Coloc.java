@@ -46,9 +46,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * This example illustrates how to create an ImageJ {@link Command} plugin.
- * <p>
- * </p>
+ * 
+ * ImageJ2 FIJI plugin to automatically calculate co-localisation of 2 channels. Images and channels are set up 
+ * using a text batchfile, see github readme file for instructions on how to set up the batchfile.
+ * Output is a tab separated file which can be imported directly into Excel.
+ * 
  */
 @Plugin(type = Command.class, menuPath = "Plugins>Users Plugins>Nucleus Colocalisation")
 public class Nucleus_Coloc<T extends RealType<T>> implements Command {
@@ -139,17 +141,13 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
                 channels[segmentationChannelIdx].setTitle(segmentationChannelName);
                 channels[comparisonChannelIdx].setTitle(comparisonChannelName);
 
-               // roiManager=RoiManager.getRoiManager();
-              //  Roi[] outlines = roiManager.getRoisAsArray();  //Assign the identified nuclei to an ROI array
-                Roi[] outlines = FindNuclei(channels);
+                Roi[] outlines = FindNuclei(imageFilePath, channels);
                 
-         //       RoiManager rm = RoiManager.getRoiManager();
-          //      rm.reset();
                 int size = 150;
                 CellposeWrapper cpw = new CellposeWrapper(modelPath.getPath(), envPath.getPath(), size, channelToSegment);
                 @SuppressWarnings("unused")
 				ImagePlus ignored = cpw.run(true);
-           //     ImagePlus regions = WindowManager.getCurrentImage();
+                IJ.save(ignored, imageFilePath + "_Overlay_" + segmentationChannelName + ".tif");
                 getROIsfromMask();
                 roiManager=RoiManager.getRoiManager();
                 Roi[] regions  = roiManager.getRoisAsArray();  //Assign the identified nuclei to an ROI array
@@ -170,14 +168,15 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
         }
     }
 
-    private Roi[] FindNuclei(ImagePlus[] channels) {
+    private Roi[] FindNuclei(Path imageFilePath, ImagePlus[] channels) {
     	
     	Roi[] outlines = null;
     	int size =150;
     	ImagePlus dapiChannel = channels[1];
     	CellposeWrapper cpw = new CellposeWrapper(modelPath.getPath(), envPath.getPath(), size,  dapiChannel);
         ImagePlus nuc = cpw.run(true);
-    	
+        IJ.save(nuc, imageFilePath + "_Overlay_DAPI.tif");
+        
         getROIsfromMask();
         roiManager=RoiManager.getRoiManager();
         outlines = roiManager.getRoisAsArray();  //Assign the identified nuclei to an ROI array
@@ -221,11 +220,7 @@ public class Nucleus_Coloc<T extends RealType<T>> implements Command {
     }
 
     /**
-     * This main function serves for development purposes.
-     * It allows you to run the plugin immediately out of
-     * your integrated development environment (IDE).
-     *
-     * @param args whatever, it's ignored
+     * 
      */
     public static void main(final String... args) {
         // create the ImageJ application context with all available services

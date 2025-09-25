@@ -6,70 +6,45 @@
 3. [Apache Commons CSV](https://repo1.maven.org/maven2/org/apache/commons/commons-csv/1.14.0/commons-csv-1.14.0.jar)
 4. [Apache Commons IO](https://repo1.maven.org/maven2/commons-io/commons-io/2.17.0/commons-io-2.17.0.jar)
 
-### The below is ImageJ2 plugin project readme boilerplate
+### Plugin Installation
 
-For an example Maven project implementing an **original ImageJ plugin**, see:
-    https://github.com/imagej/example-legacy-plugin
+1. Ensure that the computer has a working version of Cellpose (SAM).
 
-It is intended as an ideal starting point to develop new ImageJ2 commands
-in an IDE of your choice. You can even collaborate with developers using a
-different IDE than you.
+2. The Cellpose installation guide can be found here https://github.com/MouseLand/cellpose
 
-* In [Eclipse](http://eclipse.org), for example, it is as simple as
-  _File &#8250; Import... &#8250; Existing Maven Project_.
+3. Download and install the latest version of FIJI fro here https://imagej.net/software/fiji/
 
-* In [NetBeans](http://netbeans.org), it is even simpler:
-  _File &#8250; Open Project_.
+4. Copy the plugin .jar file into the plugins directory of the FIJI installation.
 
-* The same works in [IntelliJ](http://jetbrains.net).
+5. Restart FIJI.
 
-* If [jEdit](http://jedit.org) is your preferred IDE, you will need the
-  [Maven Plugin](http://plugins.jedit.org/plugins/?MavenPlugin).
+6. If the plugin has installed correctly then the plugin "Nucleus Colocalisation" will appear in the plugins list.
 
-Die-hard command-line developers can use Maven directly by calling `mvn`
-in the project root.
+### Plugin Usage
 
-However you build the project, in the end you will have the `.jar` file
-(called *artifact* in Maven speak) in the `target/` subdirectory.
+1. A .txt batchfile is required to set up how the colocalisation will work and which images to use.
 
-To copy the artifact into the correct place, you can call
-`mvn -Dscijava.app.directory="/path/to/ImageJ2.app/"`.
-This will not only copy your artifact, but also all the dependencies.
+2. An example batchfile is included on github
 
-Developing code in an IDE is convenient, especially for debugging.
-To that end, this project contains a `main` method which launches ImageJ2,
-loads an image and runs the command.
+3. batchfile construction
+	(a) imageFilePath - This is the filepath location to the image.
+	(b) zSlice - The z position to use for the co-localisation calculations.
+	(c) segmentationChannelIdx - The channel number in FIJI containing channel 1 for co-localisation (eg GFP in channel 2).
+	(d) segmentationChannelName - This is the name that will be applied to channel 1.
+	(e) comparisonChannelIdx - The channel number in FIJI containing channel 2 for co-localisation (eg RFP in channel 3).
+	(f) comparisonChannelName - This is the name that will be applied to channel 2.
+	
+	The plugin will measure as many files as you wish in the order they are placed in the batchfile. 
 
-Since this project is intended as a starting point for your own
-developments, it is in the public domain.
+4. Select Nucleus Colocalisation from FIJI's plugins
 
-How to use this project as a starting point
-===========================================
+5. A dialogue box titled Nucleus Colocalisation will appear wth various options.
+	(a) Batch File Location - Use Browse to navigate to the batchfile.txt containing the information about your files and their location.
+	(b) Model Path - The location of the Cellpose model in use. The plugin was developed using the model cpsam.
+	(c) Cellpose Environment Path - Browse to the location of where you installed your cellpose environment.
+	(d) Pearsons Auto-Threshold Algorithm - The choices are Costes or Bicubic and are used to determine the threshold at which measurements will be performed. 
 
-1. Visit [this link](https://github.com/imagej/example-imagej2-command/generate)
-   to create a new repository in your space using this one as a template.
+6. The plugin will run and output an image overlayed with the cell numbers so that results can be matched with cells.
 
-2. [Clone your new repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository).
+7. A tab separated file with all the colocalisation results is output to the same directory as the image file.
 
-3. Edit the `pom.xml` file, fixing all the lines labeled `FIXME`.
-
-4. Remove the `GaussFiltering.java` file and add your own `.java` files
-   to `src/main/java/<package>/` (if you need supporting files such as icons
-   in the resulting `.jar` file, put them into `src/main/resources/`)
-
-5. Replace the contents of `README.md` with information about your project.
-
-6. Make your initial
-   [commit](https://docs.github.com/en/desktop/contributing-and-collaborating-using-github-desktop/making-changes-in-a-branch/committing-and-reviewing-changes-to-your-project) and
-   [push the results](https://docs.github.com/en/get-started/using-git/pushing-commits-to-a-remote-repository)!
-
-### Eclipse: To ensure that Maven copies the command to your ImageJ2 folder
-
-1. Go to _Run Configurations..._
-2. Choose _Maven Build_
-3. Add the following parameter:
-    - name: `scijava.app.directory`
-    - value: `/path/to/ImageJ2.app/`
-
-This ensures that the final `.jar` file will also be copied
-into your ImageJ2 folder everytime you run the Maven build.

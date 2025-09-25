@@ -24,8 +24,6 @@ public class ColocNuclei {
 
     }
     public static final String MASK_NAME = "Mask";
-  //  private final ImagePlus regionsImp;
- //   private final Roi[] regionsImp;
     private final Path imageFilePath;
     private final String channel1;
     private final String channel2;
@@ -34,10 +32,8 @@ public class ColocNuclei {
     private final Roi[] nucs;
     private final ImagePlus mask;
 
- //   public ColocNuclei(ImagePlus regions, Path imageFilePath, String channel1, String channel2, AutoThresholdAlgorithm autoThresholdAlgorithm, Roi[] nucOutlines) {
     public ColocNuclei(Roi[] regions, Path imageFilePath, String channel1, String channel2, AutoThresholdAlgorithm autoThresholdAlgorithm, Roi[] nucOutlines, ImagePlus maskImage) {
     	     
-    //	this.regionsImp = regions;
         this.imageFilePath = imageFilePath;
         this.channel1 = channel1;
         this.channel2 = channel2;
@@ -60,11 +56,8 @@ public class ColocNuclei {
 
     public void run() {
         try {
-         //   int regionsID = regionsImp.getID();
-
             RoiManager rm = RoiManager.getRoiManager();
             List<String[]> allCellResults = new ArrayList<>(rm.getCount());
-           // for (int cellRoiIdx = 1; cellRoiIdx < rm.getCount() + 1; ++cellRoiIdx) {
             IJ.selectWindow(channel1);
         	ImagePlus currentWindow = WindowManager.getCurrentImage();
         	
@@ -80,10 +73,6 @@ public class ColocNuclei {
             			IJ.selectWindow(maskID);
             			IJ.setRawThreshold(mask, cellRoiIdx, cellRoiIdx);
             			IJ.run(mask, "Analyze Particles...", "  show=Masks display clear"); //Make Mask from cellpose regions
-            		//	Roi roiToTest = nucs[cellRoiIdx];
-            		//	currentWindow.setRoi(roiToTest);
-            		//	IJ.run(currentWindow, "Analyze Particles...", "  show=Masks display clear"); //Make Mask from cellpose regions
-
                 		ImagePlus tempMask = WindowManager.getCurrentImage();
                     	IJ.run(tempMask, "Invert LUT", "");
                     	tempMask.setTitle(MASK_NAME);
@@ -99,7 +88,6 @@ public class ColocNuclei {
             	}
             }
             writeCsvWithHeader(allCellResults);
-    //        IJ.save(regionsImp, imageFilePath + "_Overlay.tif");
             IJ.save(mask, imageFilePath + "_Overlay.tif");
             rm.reset();
         } catch (Exception e) {
@@ -116,9 +104,6 @@ public class ColocNuclei {
                 "spearman's_rank_correlation",
                 "manders'_correlation",
                 "2d_intensity_histogram",
-         /*       "costes'_significance_test",
-                "psf=" + psf,
-                "costes_randomisations=" + costesRandomisations, */
         });
     }
 

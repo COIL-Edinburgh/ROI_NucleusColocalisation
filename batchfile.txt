@@ -1,0 +1,5 @@
+imageFilePath	zSlice	segmentationChannelIdx	segmentationChannelName	comparisonChannelIdx	comparisonChannelName
+D:\Temp\coloc_interim_files\WT_HA\DNMT3L\E16_5_DNMT3L-HAHA.czi	4	2	DNMT3L	3	H3K4me3
+D:\Temp\coloc_interim_files\WT_HA\MIWI2\E16_5_MIWI2-HAWT_1.czi	3	2	MIWI2	3	H3K4me3
+D:\Temp\coloc_interim_files\WT_HA\MIWI2\Spocd1-K464A_Miwi2.czi	1	3	MIWI2	2	H3K4me3
+D:\Temp\coloc_interim_files\WT_HA\MIWI2\MIWI2-HAHA_E16_116.czi	2	3	MIWI2	2	H3K4me3
